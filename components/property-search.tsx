@@ -406,10 +406,10 @@ export function PropertySearch() {
 
                     <TableCell className="text-right">
                       <Badge
-                        variant={p.source === "data_lake" ? "default" : "secondary"}
-                        className="text-[10px] capitalize"
+                        variant={p.source === "dataforseo" ? "default" : p.source === "data_lake" ? "default" : "secondary"}
+                        className={`text-[10px] capitalize ${p.source === "dataforseo" ? "bg-emerald-600 hover:bg-emerald-700 text-white font-medium" : ""}`}
                       >
-                        {p.source.replace("_", " ")}
+                        {p.source === "dataforseo" ? "DataForSEO Live" : p.source.replace("_", " ")}
                       </Badge>
                     </TableCell>
                   </TableRow>

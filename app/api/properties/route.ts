@@ -55,9 +55,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid request data', details: validation.error.format() }, { status: 400 });
     }
 
-    // Check if user has custom Google Maps or Skip Trace key saved in provider settings
+    // Check if user has custom Google Maps, DataForSEO, or Skip Trace key saved in provider settings
     let customGoogleKey: string | undefined;
     let customSkipTraceKey: string | undefined;
+    let customDataForSeoKey: string | undefined;
 
     try {
       const providerRows = await d1
@@ -68,12 +69,13 @@ export async function POST(req: NextRequest) {
       for (const row of providerRows.results || []) {
         if (row.provider === 'google_maps' && row.api_key) customGoogleKey = row.api_key;
         if (row.provider === 'skip_trace' && row.api_key) customSkipTraceKey = row.api_key;
+        if (row.provider === 'dataforseo' && row.api_key) customDataForSeoKey = row.api_key;
       }
     } catch {
       // ignore
     }
 
-    const results = await searchPropertyOwners(validation.data, customGoogleKey, customSkipTraceKey);
+    const results = await searchPropertyOwners(validation.data, customGoogleKey, customSkipTraceKey, customDataForSeoKey);
 
     // Cost: 1 credit per 5 property records discovered (minimum 1)
     const cost = Math.max(1, Math.ceil(results.length / 5));
