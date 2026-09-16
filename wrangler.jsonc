@@ -1,0 +1,20 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "enrichagent",
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "enrichagent-db",
+      "database_id": "305c3370-5acd-4d9a-bcd6-2f5f715fa069",
+      "migrations_dir": "cloudflare"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "c3a9be57e990455c842c3fe3255e4284"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@enrichagent/mcp",
+  "version": "1.0.0",
+  "description": "MCP Server for EnrichAgent - AI-powered lead enrichment",
+  "main": "dist/server.js",
+  "bin": {
+    "enrichagent-mcp": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "npx tsx server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.0",
+    "@types/node": "^22.10.0"
+  }
+}
