@@ -11,8 +11,16 @@ export const dynamic = 'force-dynamic';
 const enrichRequestSchema = z.object({
   domain: z.string().min(1, 'Domain is required'),
   title: z.string().optional(),
-  requireMobile: z.boolean().default(false),
-  includeCompanyData: z.boolean().default(true),
+  jobTitle: z.string().optional(),
+  requireMobile: z.boolean().optional(),
+  includeCompanyData: z.boolean().optional(),
+  options: z
+    .object({
+      verifiedEmail: z.boolean().optional(),
+      directPhone: z.boolean().optional(),
+      companyData: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -53,7 +61,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid request data', details: validationResult.error.format() }, { status: 400 });
     }
 
-    const { domain, title, requireMobile, includeCompanyData } = validationResult.data;
+    const rawData = validationResult.data;
+    const domain = rawData.domain;
+    const title = rawData.title || rawData.jobTitle;
+    const requireMobile = rawData.requireMobile ?? rawData.options?.directPhone ?? false;
+    const includeCompanyData = rawData.includeCompanyData ?? rawData.options?.companyData ?? true;
 
     const enrichmentResult = await enrichLead(
       { domain, title, requireMobile, includeCompanyData },
@@ -76,6 +88,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: enrichmentResult,
+      results: [enrichmentResult],
       creditsRemaining,
     });
   } catch (error: any) {

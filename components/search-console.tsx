@@ -62,8 +62,13 @@ export function SearchConsole({ onResults }: SearchConsoleProps) {
       }
 
       const data = await response.json()
-      onResults(data.results)
-      toast.success(`Found ${data.results.length} leads`)
+      const leads = Array.isArray(data.results)
+        ? data.results
+        : data.data
+        ? [data.data]
+        : []
+      onResults(leads)
+      toast.success(`Found ${leads.length} lead${leads.length === 1 ? '' : 's'}`)
     } catch (error: any) {
       toast.error(error.message || "Failed to fetch results")
     } finally {
