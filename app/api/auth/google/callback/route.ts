@@ -111,7 +111,8 @@ export async function GET(request: Request) {
   }
 
   // Persist Google access & refresh tokens for automated Google Sheets sync
-  if (!isMock && tokenData) {
+  const hasSheetsScope = tokenData?.scope?.includes('spreadsheets') || intent === 'sheets';
+  if (!isMock && tokenData && hasSheetsScope) {
     try {
       await d1
         .prepare(

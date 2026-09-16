@@ -100,6 +100,32 @@ export async function POST(req: NextRequest) {
         rowsAppended: res.rowsAppended,
       });
     } catch (err: any) {
+      const isScopeInsufficient =
+        err.message?.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') ||
+        err.message?.includes('insufficient authentication scopes') ||
+        err.message?.includes('PERMISSION_DENIED') ||
+        err.message?.includes('403');
+
+      if (isScopeInsufficient) {
+        try {
+          await d1
+            .prepare('DELETE FROM user_provider_keys WHERE user_id = ? AND provider = ?')
+            .bind(user.id, 'google_sheets')
+            .run();
+        } catch {
+          // ignore
+        }
+
+        return NextResponse.json(
+          {
+            connected: false,
+            error: 'Google Sheets permission required. Redirecting to Google to authorize Sheets...',
+            connectUrl: '/api/auth/google?intent=sheets',
+          },
+          { status: 403 }
+        );
+      }
+
       // If token expired (401), try refreshing token
       const isUnauthorized = err.message?.includes('401') || err.message?.includes('UNAUTHENTICATED');
       if (isUnauthorized && refreshToken && process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
