@@ -62,3 +62,60 @@ CREATE INDEX IF NOT EXISTS idx_contacts_domain_title ON contacts(company_domain,
 CREATE INDEX IF NOT EXISTS idx_contacts_email ON contacts(email);
 CREATE INDEX IF NOT EXISTS idx_companies_domain ON companies(domain);
 CREATE INDEX IF NOT EXISTS idx_saved_leads_user ON user_saved_leads(user_id);
+
+-- Local Businesses Data Lake (Google Maps / SMBs)
+CREATE TABLE IF NOT EXISTS local_businesses (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  category TEXT NOT NULL,
+  address TEXT NOT NULL,
+  city TEXT NOT NULL,
+  area_pincode TEXT NOT NULL,
+  country TEXT NOT NULL DEFAULT 'US',
+  phone TEXT,
+  website TEXT,
+  rating REAL,
+  reviews_count INTEGER,
+  google_maps_url TEXT,
+  source TEXT DEFAULT 'google_maps',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Startups & Funding Intelligence Data Lake (SEC Form D + YC/HN)
+CREATE TABLE IF NOT EXISTS startups (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  domain TEXT,
+  industry TEXT NOT NULL,
+  city TEXT NOT NULL,
+  state TEXT,
+  country TEXT NOT NULL DEFAULT 'US',
+  funding_date TEXT NOT NULL,
+  funding_round TEXT NOT NULL,
+  funding_amount_usd INTEGER NOT NULL,
+  investors TEXT, -- JSON array string
+  founders TEXT, -- JSON array string
+  sec_filing_url TEXT,
+  description TEXT,
+  source TEXT DEFAULT 'sec_edgar',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Custom User Provider Keys & MCP Connectors
+CREATE TABLE IF NOT EXISTS user_provider_keys (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL,
+  api_key TEXT,
+  mcp_endpoint TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, provider)
+);
+
+CREATE INDEX IF NOT EXISTS idx_local_biz_loc ON local_businesses(city, category);
+CREATE INDEX IF NOT EXISTS idx_local_biz_pincode ON local_businesses(area_pincode);
+CREATE INDEX IF NOT EXISTS idx_startups_date ON startups(funding_date);
+CREATE INDEX IF NOT EXISTS idx_startups_industry ON startups(industry);
+

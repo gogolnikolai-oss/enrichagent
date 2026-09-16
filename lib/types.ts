@@ -124,3 +124,70 @@ export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     ],
   },
 ];
+
+// --- Local Business / Google Maps Types ---
+export interface LocalBusiness {
+  id: string;
+  name: string;
+  category: string;
+  address: string;
+  city: string;
+  area_pincode: string;
+  country: string;
+  phone: string | null;
+  website: string | null;
+  rating: number | null;
+  reviews_count: number | null;
+  google_maps_url: string | null;
+  source: 'google_maps' | 'dataforseo' | 'osm' | 'data_lake';
+  created_at?: string;
+}
+
+export interface LocalSearchRequest {
+  category: string;
+  city?: string;
+  areaOrPincode?: string;
+  country?: string;
+  requirePhone?: boolean;
+  requireWebsite?: boolean;
+  minRating?: number;
+}
+
+// --- Startups & Funding Intelligence Types ---
+export interface StartupFunding {
+  id: string;
+  name: string;
+  domain: string | null;
+  industry: string;
+  city: string;
+  state: string | null;
+  country: string;
+  funding_date: string; // ISO date
+  funding_round: 'Pre-Seed' | 'Seed' | 'Series A' | 'Series B' | 'Venture' | 'Grant';
+  funding_amount_usd: number;
+  investors: string[];
+  founders: string[];
+  sec_filing_url: string | null;
+  description: string;
+  source: 'sec_edgar' | 'yc_directory' | 'hn_startups' | 'data_lake';
+  created_at?: string;
+}
+
+export interface StartupSearchRequest {
+  timeWindowMonths?: number; // default 6 (last 6 months)
+  round?: string;
+  minFunding?: number;
+  industry?: string;
+  country?: string;
+}
+
+// --- Custom User Provider Keys & MCP Connectors ---
+export interface UserProviderConfig {
+  id: string;
+  userId: string;
+  provider: 'google_maps' | 'dataforseo' | 'hunter' | 'custom_mcp';
+  apiKey?: string;
+  mcpEndpoint?: string;
+  enabled: boolean;
+}
+

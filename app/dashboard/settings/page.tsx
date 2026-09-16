@@ -3,6 +3,7 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { d1, UserRecord } from "@/lib/d1";
 import { ApiKeyCard } from "@/components/api-key-card";
 import { McpConfigSnippet } from "@/components/mcp-config-snippet";
+import { ProvidersCard } from "@/components/providers-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,15 @@ export default async function SettingsPage() {
   if (!user) {
     redirect("/login");
   }
+
+  const providerRows = await d1
+    .prepare("SELECT provider, api_key, mcp_endpoint FROM user_provider_keys WHERE user_id = ?")
+    .bind(session.userId)
+    .all<{ provider: string; api_key: string | null; mcp_endpoint: string | null }>();
+
+  const googleKeyRow = providerRows.results?.find((r) => r.provider === "google_maps");
+  const dataforseoRow = providerRows.results?.find((r) => r.provider === "dataforseo");
+  const mcpRow = providerRows.results?.find((r) => r.provider === "custom_mcp");
 
   async function updateWebhook(formData: FormData) {
     "use server";
@@ -50,6 +60,12 @@ export default async function SettingsPage() {
       <div className="grid gap-6">
         <ApiKeyCard initialApiKey={user.api_key} userId={user.id} />
         <McpConfigSnippet apiKey={user.api_key} />
+
+        <ProvidersCard
+          initialGoogleKey={googleKeyRow?.api_key || ""}
+          initialDataforseoKey={dataforseoRow?.api_key || ""}
+          initialMcpUrl={mcpRow?.mcp_endpoint || ""}
+        />
 
         <Card>
           <CardHeader>
