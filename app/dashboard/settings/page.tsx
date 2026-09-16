@@ -4,6 +4,7 @@ import { d1, UserRecord } from "@/lib/d1";
 import { ApiKeyCard } from "@/components/api-key-card";
 import { McpConfigSnippet } from "@/components/mcp-config-snippet";
 import { ProvidersCard } from "@/components/providers-card";
+import { ChangePasswordCard } from "@/components/change-password-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -68,6 +69,8 @@ export default async function SettingsPage() {
           initialSkipTraceKey={skipTraceRow?.api_key || ""}
           initialMcpUrl={mcpRow?.mcp_endpoint || ""}
         />
+
+        <ChangePasswordCard hasExistingPassword={user.password_hash !== null} />
 
         <Card>
           <CardHeader>
