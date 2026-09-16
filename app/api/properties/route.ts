@@ -13,9 +13,10 @@ const propertySearchSchema = z.object({
   city: z.string().optional(),
   areaOrZipcode: z.string().optional(),
   country: z.string().default('United States'),
+  ownerCategory: z.enum(['all', 'individual', 'commercial']).default('all'),
   requireMobile: z.boolean().default(false),
   requireEmail: z.boolean().default(false),
-  limit: z.number().min(1).max(50).default(15),
+  limit: z.number().min(1).max(50).default(20),
 });
 
 export async function POST(req: NextRequest) {

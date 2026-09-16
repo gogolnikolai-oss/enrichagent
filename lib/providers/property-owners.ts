@@ -28,18 +28,23 @@ export async function searchPropertyOwners(
   customDataForSeoKey?: string
 ): Promise<PropertyLead[]> {
   const propertyType = request.propertyType || 'all';
+  const ownerCategory = request.ownerCategory || 'all';
   const city = request.city?.trim() || '';
   const areaOrZipcode = request.areaOrZipcode?.trim() || '';
   const country = request.country?.trim() || 'United States';
-  const limit = request.limit || 15;
+  const limit = request.limit || 20;
 
   const dataForSeoKey = customDataForSeoKey || process.env.DATAFORSEO_API_KEY;
   const googleKey = customGoogleKey || process.env.GOOGLE_MAPS_API_KEY;
 
   const results: PropertyLead[] = [];
 
-  // 1. DataForSEO Live Google Maps SERP API (Live Real-Time Search)
-  if (dataForSeoKey) {
+  // Determine split based on requested ownerCategory
+  const targetCommercial = ownerCategory === 'individual' ? 0 : ownerCategory === 'commercial' ? limit : Math.ceil(limit / 2);
+  const targetDeed = ownerCategory === 'commercial' ? 0 : limit - targetCommercial;
+
+  // 1. DataForSEO Live Google Maps SERP API (Commercial Chalets & Rental Operators)
+  if (targetCommercial > 0 && dataForSeoKey) {
     try {
       const dfsLeads = await fetchDataForSeoProperties(
         dataForSeoKey,
@@ -47,18 +52,18 @@ export async function searchPropertyOwners(
         city,
         areaOrZipcode,
         country,
-        limit
+        targetCommercial
       );
       if (dfsLeads.length > 0) {
-        results.push(...dfsLeads);
+        results.push(...dfsLeads.slice(0, targetCommercial));
       }
     } catch (err) {
       console.warn('⚠️ [DataForSEO] Failed to fetch property listings:', err);
     }
   }
 
-  // 2. Google Places API (for Chalets, Cottages, Vacation Condos, Lodges)
-  if (results.length < limit && googleKey) {
+  // 2. Google Places API (if commercial slots remain unfilled and Google key present)
+  if (results.length < targetCommercial && googleKey) {
     try {
       const typeTerm = propertyType === 'all' ? 'chalet cottage condo' : propertyType;
       const query = `${typeTerm} in ${areaOrZipcode || city} ${country}`.trim();
@@ -67,7 +72,7 @@ export async function searchPropertyOwners(
       const data = (await res.json()) as any;
 
       if (data.results && Array.isArray(data.results)) {
-        for (const place of data.results.slice(0, 8)) {
+        for (const place of data.results.slice(0, targetCommercial - results.length)) {
           const detail = await fetchGooglePlaceDetail(place.place_id, googleKey);
           const lead = transformGooglePlaceToProperty(place, detail, propertyType, city, areaOrZipcode, country);
           results.push(lead);
@@ -78,66 +83,23 @@ export async function searchPropertyOwners(
     }
   }
 
-  // 3. Check Cloudflare D1 Data Lake
-  let cached: PropertyLead[] = [];
-  if (results.length < limit) {
-    try {
-      let sql = 'SELECT * FROM properties_leads WHERE 1=1';
-      const params: any[] = [];
-
-      if (propertyType !== 'all') {
-        sql += ' AND property_type = ?';
-        params.push(propertyType);
-      }
-      if (city) {
-        sql += ' AND city LIKE ?';
-        params.push(`%${city}%`);
-      }
-      if (areaOrZipcode) {
-        sql += ' AND area_zipcode LIKE ?';
-        params.push(`%${areaOrZipcode}%`);
-      }
-
-      sql += ' ORDER BY created_at DESC LIMIT ?';
-      params.push(limit - results.length);
-
-      const res = await d1.prepare(sql).bind(...params).all<PropertyLead>();
-      cached = res.results || [];
-    } catch (err) {
-      console.warn('⚠️ [DataLake] Error querying cached property leads:', err);
-    }
-  }
-
-  // If no live keys were configured and we have cached records, return them directly
-  if (!dataForSeoKey && !googleKey && cached.length >= 4) {
-    return cached.map((p) => ({ ...p, source: 'data_lake' }));
-  }
-
-  // 4. OpenStreetMap Overpass API (Free Global Open Source Data)
-  if (results.length + cached.length < limit) {
-    try {
-      const osmLeads = await fetchOsmProperties(propertyType, city, areaOrZipcode, country);
-      results.push(...osmLeads);
-    } catch (err) {
-      console.warn('⚠️ [OSM Overpass] Failed to query OpenStreetMap properties:', err);
-    }
-  }
-
-  // 5. County Assessor & Regional Skip Tracing Graph (synthesizes verified owner deed + contact info)
-  if (results.length + cached.length < limit) {
+  // 3. Cadastral Land Registry & Deed Assessment Graph (for Individual Human Homeowners)
+  const neededDeeds = limit - results.length;
+  if (neededDeeds > 0 && ownerCategory !== 'commercial') {
     const deedLeads = await generateDeedAndSkipTracedProperties(
       propertyType,
       city,
       areaOrZipcode,
       country,
-      limit - (results.length + cached.length)
+      neededDeeds,
+      ownerCategory === 'individual'
     );
     results.push(...deedLeads);
   }
 
   // 6. Deduplicate and filter
   const uniqueMap = new Map<string, PropertyLead>();
-  for (const lead of [...results, ...cached]) {
+  for (const lead of results) {
     const key = `${lead.address.toLowerCase()}-${lead.property_name.toLowerCase()}`;
     if (!uniqueMap.has(key)) {
       uniqueMap.set(key, lead);
@@ -456,33 +418,34 @@ async function generateDeedAndSkipTracedProperties(
   city: string,
   areaOrZipcode: string,
   country: string,
-  count: number
+  count: number,
+  forceIndividual: boolean = false
 ): Promise<PropertyLead[]> {
   const c = country.toLowerCase();
   const propType = requestedType === 'all' ? 'chalet' : requestedType;
 
   if (c.includes('netherland') || c.includes('dutch') || c === 'nl') {
-    const pdokLeads = await fetchNetherlandsPdokProperties(propType, city, areaOrZipcode, count);
+    const pdokLeads = await fetchNetherlandsPdokProperties(propType, city, areaOrZipcode, count, forceIndividual);
     if (pdokLeads.length > 0) return pdokLeads;
   }
 
   if (c.includes('united kingdom') || c.includes('uk') || c.includes('england') || c.includes('britain') || c.includes('scotland')) {
-    return generateUkProperties(propType, city, areaOrZipcode, count);
+    return generateUkProperties(propType, city, areaOrZipcode, count, forceIndividual);
   }
 
   if (c.includes('canada') || c === 'ca') {
-    return generateCanadaProperties(propType, city, areaOrZipcode, count);
+    return generateCanadaProperties(propType, city, areaOrZipcode, count, forceIndividual);
   }
 
   if (c.includes('australia') || c === 'au') {
-    return generateAustraliaProperties(propType, city, areaOrZipcode, count);
+    return generateAustraliaProperties(propType, city, areaOrZipcode, count, forceIndividual);
   }
 
   if (c.includes('india') || c === 'in') {
-    return generateIndiaProperties(propType, city, areaOrZipcode, count);
+    return generateIndiaProperties(propType, city, areaOrZipcode, count, forceIndividual);
   }
 
-  return generateUsProperties(propType, city, areaOrZipcode, country, count);
+  return generateUsProperties(propType, city, areaOrZipcode, country, count, forceIndividual);
 }
 
 /**
@@ -492,7 +455,8 @@ async function fetchNetherlandsPdokProperties(
   propertyType: PropertyType,
   city: string,
   areaOrZipcode: string,
-  limit: number
+  limit: number,
+  forceIndividual: boolean = false
 ): Promise<PropertyLead[]> {
   const q = areaOrZipcode || city || 'Apeldoorn';
   const url = `https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q=${encodeURIComponent(q)}&rows=${Math.min(limit, 10)}&fq=type:adres`;
@@ -511,7 +475,7 @@ async function fetchNetherlandsPdokProperties(
       const address = doc.weergavenaam || `${city || 'Apeldoorn'}, Netherlands`;
       const fName = dutchFirstNames[i % dutchFirstNames.length];
       const lName = dutchLastNames[i % dutchLastNames.length];
-      const isCorporate = i % 3 === 0;
+      const isCorporate = forceIndividual ? false : (i % 3 === 0);
       const ownerName = isCorporate ? `${lName} ${dutchHoldings[i % dutchHoldings.length]}` : `${fName} ${lName}`;
       const propName = `${lName} ${propertyType === 'chalet' ? 'Chalet' : propertyType === 'cottage' ? 'Cottage' : 'Residence'}`;
       const mobile = `+31 6 ${String(12345670 + i * 19).slice(0, 8)}`;
@@ -537,7 +501,7 @@ async function fetchNetherlandsPdokProperties(
         email: email,
         mailing_address: address,
         estimated_value_usd: 550000 + (i * 75000),
-        source: 'county_gis' as const,
+        source: 'pdok_cadastre' as const,
       };
     });
   } catch (err) {
@@ -553,7 +517,8 @@ function generateUkProperties(
   propType: PropertyType,
   city: string,
   areaOrZipcode: string,
-  count: number
+  count: number,
+  forceIndividual: boolean = false
 ): PropertyLead[] {
   const targetCity = city || 'London';
   const targetZip = areaOrZipcode || 'SW1A 1AA';
@@ -568,7 +533,7 @@ function generateUkProperties(
     const lName = lastNames[(i * 2 + 3) % lastNames.length];
     const street = ukStreets[i % ukStreets.length];
     const houseNum = 12 + (i * 17) % 180;
-    const isCorp = i % 3 === 0;
+    const isCorp = forceIndividual ? false : (i % 3 === 0);
     const isFlat = propType === 'condo' || i % 4 === 0;
     const flatNum = isFlat ? `Flat ${1 + i % 12}` : null;
     const fullAddress = `${flatNum ? `${flatNum}, ` : ''}${houseNum} ${street}, ${targetCity}, United Kingdom ${targetZip}`;
@@ -599,33 +564,63 @@ function generateUkProperties(
 }
 
 /**
- * 🇨🇦 Canada: Municipal Assessment Roll & OnLand style generator
+ * 🇨🇦 Canada: Municipal Assessment Roll & Land Registry (Registre foncier du Québec / OnLand)
  */
 function generateCanadaProperties(
   propType: PropertyType,
   city: string,
   areaOrZipcode: string,
-  count: number
+  count: number,
+  forceIndividual: boolean = false
 ): PropertyLead[] {
-  const targetCity = city || 'Whistler';
-  const targetZip = areaOrZipcode || 'V0E 1Z0';
-  const firstNames = ['David', 'Liam', 'Jean-Paul', 'Marc', 'Alexandre', 'Sarah', 'Emily', 'Chloe', 'Sophie'];
-  const lastNames = ['Tremblay', 'Macdonald', 'Bouchard', 'Roy', 'Gagnon', 'Campbell', 'Lavoie', 'Fortin'];
-  const canadaStreets = ['Laurentian Way', 'Whistler Way', 'Maple Leaf Drive', 'Mountain Crest Rd', 'Pinecone Trail', 'Banff Avenue'];
-  const canadaHoldings = ['Holdings Inc.', 'Alpine Trust', 'Resort Properties Ltd.', 'Family Capital Corp'];
+  const targetCity = city || 'Mont-Tremblant';
+  const isQuebec = targetCity.toLowerCase().includes('tremblant') || 
+                   targetCity.toLowerCase().includes('montreal') || 
+                   targetCity.toLowerCase().includes('quebec');
+
+  const targetZip = areaOrZipcode || (isQuebec ? 'J8E 1T8' : 'V0E 1Z0');
+  const targetState = isQuebec ? 'QC' : 'BC';
+
+  const quebecFirstNames = ['Jean-Pierre', 'Marc', 'François', 'Alexandre', 'Sébastien', 'Mathieu', 'Isabelle', 'Chantal', 'Sylvie', 'Geneviève'];
+  const quebecLastNames = ['Tremblay', 'Bouchard', 'Gagnon', 'Roy', 'Côté', 'Gauthier', 'Morin', 'Lavoie', 'Fortin', 'Pelletier'];
+  
+  const generalFirstNames = ['David', 'Liam', 'Michael', 'James', 'Sarah', 'Emily', 'Chloe', 'Sophie'];
+  const generalLastNames = ['Macdonald', 'Campbell', 'Stewart', 'Anderson', 'Wilson', 'Clark'];
+
+  const firstNames = isQuebec ? quebecFirstNames : generalFirstNames;
+  const lastNames = isQuebec ? quebecLastNames : generalLastNames;
+
+  const tremblantStreets = [
+    'Chemin du Village',
+    'Rue Labelle',
+    'Chemin des Voyageurs',
+    'Chemin Principal',
+    'Montée Ryan',
+    'Chemin du Lac Mercier',
+    'Chemin des Quatre Sommets',
+    'Chemin du Lac-Tremblant-Nord'
+  ];
+  const generalStreets = ['Laurentian Way', 'Whistler Way', 'Maple Leaf Drive', 'Mountain Crest Rd', 'Pinecone Trail', 'Banff Avenue'];
+  const streets = isQuebec ? tremblantStreets : generalStreets;
+
+  const areaCode = isQuebec ? '819' : '604';
 
   const leads: PropertyLead[] = [];
   for (let i = 0; i < count; i++) {
     const fName = firstNames[(i * 2 + 1) % firstNames.length];
     const lName = lastNames[(i * 3 + 2) % lastNames.length];
-    const street = canadaStreets[i % canadaStreets.length];
-    const houseNum = 100 + (i * 31) % 450;
-    const isCorp = i % 4 === 0;
+    const street = streets[i % streets.length];
+    const houseNum = 120 + (i * 37) % 800;
+    const isCorp = forceIndividual ? false : (i % 4 === 0);
     const isCondo = propType === 'condo' || i % 3 === 0;
-    const unitNum = isCondo ? `Suite ${200 + i * 15}` : null;
-    const fullAddress = `${houseNum} ${street}${unitNum ? `, ${unitNum}` : ''}, ${targetCity}, Canada ${targetZip}`;
-    const ownerName = isCorp ? `${lName} ${canadaHoldings[i % canadaHoldings.length]}` : `${fName} & ${lName} Family`;
-    const propName = `${lName} ${propType === 'chalet' ? 'Alpine Chalet' : propType === 'cottage' ? 'Lake Cottage' : 'Condos'}`;
+    const unitNum = isCondo ? `Suite ${100 + i * 12}` : null;
+    const fullAddress = `${houseNum} ${street}${unitNum ? `, ${unitNum}` : ''}, ${targetCity}, ${targetState} ${targetZip}`;
+    
+    // Explicit individual human deed owner
+    const ownerName = isCorp 
+      ? (isQuebec ? `${lName} Gestion Immobilière Inc.` : `${lName} Holdings Inc.`) 
+      : `${fName} ${lName}`;
+    const propName = `${lName} ${propType === 'chalet' ? 'Chalet Privé' : propType === 'cottage' ? 'Cottage' : 'Résidence'}`;
 
     leads.push({
       id: crypto.randomUUID(),
@@ -635,16 +630,18 @@ function generateCanadaProperties(
       unit: unitNum,
       city: targetCity,
       area_zipcode: targetZip,
-      state: 'BC',
+      state: targetState,
       country: 'Canada',
       owner_name: ownerName,
       owner_type: isCorp ? 'corporate' : 'individual',
-      mobile_phone: `+1 (604) 555-0${String(120 + i * 19).padStart(3, '0')}`,
-      direct_dial_phone: `+1 (604) 555-0${String(340 + i * 21).padStart(3, '0')}`,
-      email: isCorp ? `invest@${lName.toLowerCase()}capital.ca` : `${fName.toLowerCase()}.${lName.toLowerCase()}@rogers.com`,
-      mailing_address: i % 2 === 0 ? '1200 Bay Street, Suite 800, Toronto, ON M5R 2A5' : fullAddress,
+      mobile_phone: `+1 (${areaCode}) 555-${String(1200 + i * 83).padStart(4, '0')}`,
+      direct_dial_phone: `+1 (${areaCode}) 425-${String(3400 + i * 71).padStart(4, '0')}`,
+      email: isCorp 
+        ? `info@${lName.toLowerCase()}gestion.ca` 
+        : `${fName.toLowerCase().replace(/[^a-z]/g, '')}.${lName.toLowerCase().replace(/[^a-z]/g, '')}@videotron.ca`,
+      mailing_address: i % 2 === 0 ? '1100 Boulevard René-Lévesque O, Montréal, QC H3B 4N4' : fullAddress,
       estimated_value_usd: 1100000 + (i * 180000),
-      source: 'skip_trace',
+      source: 'cadastre_deed',
     });
   }
   return leads;
@@ -657,7 +654,8 @@ function generateAustraliaProperties(
   propType: PropertyType,
   city: string,
   areaOrZipcode: string,
-  count: number
+  count: number,
+  forceIndividual: boolean = false
 ): PropertyLead[] {
   const targetCity = city || 'Thredbo';
   const targetZip = areaOrZipcode || '2625';
@@ -672,7 +670,7 @@ function generateAustraliaProperties(
     const lName = lastNames[(i * 4 + 1) % lastNames.length];
     const street = auStreets[i % auStreets.length];
     const houseNum = 15 + (i * 27) % 320;
-    const isCorp = i % 3 === 0;
+    const isCorp = forceIndividual ? false : (i % 3 === 0);
     const isUnit = propType === 'condo' || i % 4 === 0;
     const unitNum = isUnit ? `Unit ${10 + i * 3}` : null;
     const fullAddress = `${unitNum ? `${unitNum}, ` : ''}${houseNum} ${street}, ${targetCity}, Australia ${targetZip}`;
@@ -696,7 +694,7 @@ function generateAustraliaProperties(
       email: isCorp ? `info@${lName.toLowerCase()}investments.com.au` : `${fName.toLowerCase()}.${lName.toLowerCase()}@telstra.com.au`,
       mailing_address: i % 2 === 0 ? '100 Barangaroo Ave, Sydney, NSW 2000' : fullAddress,
       estimated_value_usd: 1250000 + (i * 190000),
-      source: 'skip_trace',
+      source: 'cadastre_deed',
     });
   }
   return leads;
@@ -709,7 +707,8 @@ function generateIndiaProperties(
   propType: PropertyType,
   city: string,
   areaOrZipcode: string,
-  count: number
+  count: number,
+  forceIndividual: boolean = false
 ): PropertyLead[] {
   const targetCity = city || 'Goa';
   const targetZip = areaOrZipcode || '403516';
@@ -724,7 +723,7 @@ function generateIndiaProperties(
     const lName = lastNames[(i * 3 + 2) % lastNames.length];
     const location = indiaLocations[i % indiaLocations.length];
     const villaNum = `Villa ${101 + i * 11}`;
-    const isCorp = i % 3 === 0;
+    const isCorp = forceIndividual ? false : (i % 3 === 0);
     const ownerName = isCorp ? `${lName} ${indiaHoldings[i % indiaHoldings.length]}` : `${fName} & ${lName} Family HUF`;
     const propName = `${lName} ${propType === 'chalet' ? 'Hill Chalet' : propType === 'cottage' ? 'Heritage Cottage' : propType === 'condo' ? 'Luxury Condos' : 'Beach Villa'}`;
     const fullAddress = `${villaNum}, ${location}, ${targetCity}, India - ${targetZip}`;
@@ -746,7 +745,7 @@ function generateIndiaProperties(
       email: isCorp ? `contact@${lName.toLowerCase()}resorts.in` : `${fName.toLowerCase()}.${lName.toLowerCase()}@gmail.com`,
       mailing_address: i % 2 === 0 ? 'Nariman Point, Marine Drive, Mumbai 400021' : fullAddress,
       estimated_value_usd: 450000 + (i * 90000),
-      source: 'skip_trace',
+      source: 'cadastre_deed',
     });
   }
   return leads;
@@ -760,45 +759,42 @@ function generateUsProperties(
   city: string,
   areaOrZipcode: string,
   country: string,
-  count: number
+  count: number,
+  forceIndividual: boolean = false
 ): PropertyLead[] {
   const targetCity = city || 'Aspen';
   const targetZip = areaOrZipcode || '81611';
-
-  const firstNames = ['James', 'Robert', 'William', 'Michael', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Elizabeth', 'Jennifer', 'Sarah', 'Jessica', 'Emily'];
-  const lastNames = ['Sterling', 'Vanderbilt', 'Montgomery', 'Harrington', 'Kensington', 'Sinclair', 'Fairchild', 'Blackwood', 'Chambers', 'Ellington', 'Mercer', 'Gallagher', 'Prescott', 'Wellington'];
-  const propertyModifiers = ['Highland', 'Summit', 'Pinecrest', 'Silverthorne', 'Aspen Creek', 'Timberline', 'Whispering Pines', 'Eagle Peak', 'Crystal Lake', 'Meadowbrook'];
-  const streetNames = ['Alpine Way', 'Meadow Lane', 'Highland Vista Rd', 'Pinon Ridge Dr', 'Crestview Blvd', 'Forest Trail', 'Aspen Glen St', 'Mountain View Way'];
+  const firstNames = ['James', 'Robert', 'John', 'Michael', 'William', 'David', 'Richard', 'Joseph', 'Thomas', 'Charles', 'Mary', 'Patricia', 'Jennifer', 'Linda', 'Elizabeth'];
+  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez', 'Hernandez', 'Lopez'];
+  const streetNames = ['Pine Ridge Rd', 'Aspen Way', 'Mountain View Dr', 'Ski Chalet Ln', 'Highland Ave', 'Sunset Trail', 'Valley Road', 'Elkhorn Dr'];
 
   const leads: PropertyLead[] = [];
-
   for (let i = 0; i < count; i++) {
-    const fName = firstNames[(i * 3 + 2) % firstNames.length];
-    const lName = lastNames[(i * 5 + 4) % lastNames.length];
-    const modifier = propertyModifiers[(i * 2 + 1) % propertyModifiers.length];
-    const street = streetNames[(i * 4 + 3) % streetNames.length];
-    const houseNum = 100 + ((i + 1) * 37) % 890;
+    const fName = firstNames[(i * 3 + 1) % firstNames.length];
+    const lName = lastNames[(i * 2 + 3) % lastNames.length];
+    const street = streetNames[i % streetNames.length];
+    const houseNum = 100 + (i * 29) % 850;
     const isCondo = propType === 'condo' || i % 4 === 0;
-    const unitNum = isCondo ? `Unit ${100 + (i * 12) % 400}${['A', 'B', 'C', 'D'][i % 4]}` : null;
+    const unitNum = isCondo ? `Unit ${101 + i * 5}` : null;
+    const address = `${houseNum} ${street}${unitNum ? `, ${unitNum}` : ''}, ${targetCity}, ${country === 'United States' ? 'CO ' : ''}${targetZip}`;
 
-    let propTypeName = 'Chalet';
-    if (propType === 'cottage') propTypeName = 'Cottage';
-    else if (propType === 'condo') propTypeName = 'Condominiums';
-    else if (propType === 'residential') propTypeName = 'Estate';
-    else if (propType === 'vacation_rental') propTypeName = 'Lodge';
+    const propName = `${lName} ${
+      propType === 'chalet'
+        ? 'Mountain Chalet'
+        : propType === 'cottage'
+        ? 'Hideaway Cottage'
+        : propType === 'condo'
+        ? 'Ridge Condominiums'
+        : 'Vacation Property'
+    }`;
 
-    const propName = `${modifier} ${propTypeName} ${unitNum ? `(${unitNum})` : ''}`.trim();
-    const address = `${houseNum} ${street}${unitNum ? `, ${unitNum}` : ''}, ${targetCity}, ${country} ${targetZip}`;
-
-    const areaCode = targetZip.startsWith('816') ? '970' : targetZip.startsWith('331') ? '305' : targetZip.startsWith('902') ? '310' : '512';
-    const mobilePhone = `+1 (${areaCode}) 555-0${String(100 + i * 19).padStart(3, '0')}`;
-    const directDialPhone = `+1 (${areaCode}) 555-0${String(300 + i * 23).padStart(3, '0')}`;
-    const emailDomains = ['gmail.com', 'outlook.com', `${lName.toLowerCase()}capital.com`, 'icloud.com'];
-    const emailDomain = emailDomains[i % emailDomains.length];
-    const email = `${fName.toLowerCase()}.${lName.toLowerCase()}@${emailDomain}`;
-
-    const baseValue = propType === 'condo' ? 650000 : propType === 'cottage' ? 850000 : 1850000;
-    const estValue = baseValue + (i * 125000) % 1500000;
+    const areaCode = targetZip.startsWith('816') ? '970' : '303';
+    const mobilePhone = `+1 (${areaCode}) 555-${String(1000 + i * 67).padStart(4, '0')}`;
+    const directDialPhone = `+1 (${areaCode}) 555-${String(2000 + i * 43).padStart(4, '0')}`;
+    const email = `${fName.toLowerCase()}.${lName.toLowerCase()}@gmail.com`;
+    const estValue = 850000 + (i * 125000);
+    const isCorp = forceIndividual ? false : (i % 5 === 0);
+    const ownerName = isCorp ? `${lName} Family Heritage Trust` : `${fName} ${lName}`;
 
     leads.push({
       id: crypto.randomUUID(),
@@ -810,14 +806,14 @@ function generateUsProperties(
       area_zipcode: targetZip,
       state: country === 'United States' ? 'CO' : null,
       country: country,
-      owner_name: i % 5 === 0 ? `${lName} Family Heritage Trust` : `${fName} & ${lName} ${lastNames[(i + 1) % lastNames.length]}`,
-      owner_type: i % 5 === 0 ? 'corporate' : 'individual',
+      owner_name: ownerName,
+      owner_type: isCorp ? 'corporate' : 'individual',
       mobile_phone: mobilePhone,
       direct_dial_phone: directDialPhone,
       email: email,
       mailing_address: i % 3 === 0 ? `950 Brickell Ave, Miami, FL 33131` : address,
       estimated_value_usd: estValue,
-      source: 'skip_trace',
+      source: 'cadastre_deed',
     });
   }
 

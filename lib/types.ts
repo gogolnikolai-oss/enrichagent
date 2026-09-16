@@ -228,7 +228,7 @@ export interface PropertyLead {
   email: string | null;
   mailing_address: string | null;
   estimated_value_usd: number | null;
-  source: 'google_places' | 'osm_overpass' | 'county_gis' | 'skip_trace' | 'data_lake' | 'dataforseo' | 'pdok_cadastre';
+  source: 'google_places' | 'osm_overpass' | 'county_gis' | 'skip_trace' | 'data_lake' | 'dataforseo' | 'pdok_cadastre' | 'cadastre_deed';
   created_at?: string;
   updated_at?: string;
 }
@@ -238,6 +238,7 @@ export interface PropertySearchRequest {
   city?: string;
   areaOrZipcode?: string;
   country?: string;
+  ownerCategory?: 'all' | 'individual' | 'commercial';
   requireMobile?: boolean;
   requireEmail?: boolean;
   limit?: number;

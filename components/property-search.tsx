@@ -31,6 +31,7 @@ import { GoogleSheetsExportDialog } from "@/components/google-sheets-export-dial
 
 export function PropertySearch() {
   const [propertyType, setPropertyType] = useState<PropertyType>("chalet")
+  const [ownerCategory, setOwnerCategory] = useState<"all" | "individual" | "commercial">("all")
   const [city, setCity] = useState("Aspen")
   const [zipcode, setZipcode] = useState("81611")
   const [country, setCountry] = useState("United States")
@@ -50,6 +51,7 @@ export function PropertySearch() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyType,
+          ownerCategory,
           city,
           areaOrZipcode: zipcode,
           country,
@@ -161,7 +163,7 @@ export function PropertySearch() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSearch} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
               <div className="space-y-1.5">
                 <Label htmlFor="propType" className="text-xs font-medium">Property Category</Label>
                 <Select value={propertyType} onValueChange={(val) => setPropertyType(val as PropertyType)}>
@@ -170,11 +172,25 @@ export function PropertySearch() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Properties</SelectItem>
-                    <SelectItem value="chalet">🏔️ Chalets & Alpine Lodges</SelectItem>
-                    <SelectItem value="cottage">🏡 Cottages & Country Cabins</SelectItem>
-                    <SelectItem value="condo">🏢 Condominiums & Units</SelectItem>
-                    <SelectItem value="residential">🏠 Residential & Estates</SelectItem>
-                    <SelectItem value="vacation_rental">🏖️ Vacation Rentals & STR</SelectItem>
+                    <SelectItem value="chalet">🏔️ Chalets & Lodges</SelectItem>
+                    <SelectItem value="cottage">🏡 Cottages & Cabins</SelectItem>
+                    <SelectItem value="condo">🏢 Condos & Units</SelectItem>
+                    <SelectItem value="residential">🏠 Residential Estates</SelectItem>
+                    <SelectItem value="vacation_rental">🏖️ Vacation Rentals</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ownerCategory" className="text-xs font-medium">Owner Category</Label>
+                <Select value={ownerCategory} onValueChange={(val: any) => setOwnerCategory(val)}>
+                  <SelectTrigger id="ownerCategory">
+                    <SelectValue placeholder="Owner Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">👥 Both (Commercial + Deed)</SelectItem>
+                    <SelectItem value="individual">👤 Individual Deed Owners</SelectItem>
+                    <SelectItem value="commercial">🏢 Commercial Operators</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -183,17 +199,17 @@ export function PropertySearch() {
                 <Label htmlFor="city" className="text-xs font-medium">City / Region</Label>
                 <Input
                   id="city"
-                  placeholder="e.g. Aspen, Miami, Lake Tahoe"
+                  placeholder="e.g. Mont-Tremblant, Aspen"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                 />
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="zipcode" className="text-xs font-medium">Area / Zipcode / Pincode</Label>
+                <Label htmlFor="zipcode" className="text-xs font-medium">Area / Zipcode</Label>
                 <Input
                   id="zipcode"
-                  placeholder="e.g. 81611, 33139, G1K 8N8"
+                  placeholder="e.g. J8E 1T8, 81611"
                   value={zipcode}
                   onChange={(e) => setZipcode(e.target.value)}
                 />
@@ -207,7 +223,7 @@ export function PropertySearch() {
                     setCountry(val)
                     if (val === "United States") { setCity("Aspen"); setZipcode("81611"); }
                     else if (val === "United Kingdom") { setCity("London"); setZipcode("SW1A 1AA"); }
-                    else if (val === "Canada") { setCity("Whistler"); setZipcode("V0E 1Z0"); }
+                    else if (val === "Canada") { setCity("Mont-Tremblant"); setZipcode("J8E 1T8"); }
                     else if (val === "Australia") { setCity("Thredbo"); setZipcode("2625"); }
                     else if (val === "Netherlands") { setCity("Apeldoorn"); setZipcode("7311 KZ"); }
                     else if (val === "India") { setCity("Goa"); setZipcode("403516"); }
@@ -217,9 +233,9 @@ export function PropertySearch() {
                     <SelectValue placeholder="Select country" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="Canada">🇨🇦 Canada</SelectItem>
                     <SelectItem value="United States">🇺🇸 United States</SelectItem>
                     <SelectItem value="United Kingdom">🇬🇧 United Kingdom</SelectItem>
-                    <SelectItem value="Canada">🇨🇦 Canada</SelectItem>
                     <SelectItem value="Australia">🇦🇺 Australia</SelectItem>
                     <SelectItem value="Netherlands">🇳🇱 Netherlands (PDOK)</SelectItem>
                     <SelectItem value="India">🇮🇳 India (Bhulekh)</SelectItem>
@@ -333,14 +349,14 @@ export function PropertySearch() {
                     <TableCell>
                       <div className="flex items-center gap-1.5 font-medium text-sm">
                         {p.owner_type === "corporate" ? (
-                          <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <Building className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                         ) : (
-                          <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <User className="h-3.5 w-3.5 text-blue-500 shrink-0" />
                         )}
                         <span className="truncate">{p.owner_name}</span>
                       </div>
                       <div className="text-[11px] text-muted-foreground capitalize mt-0.5">
-                        {p.owner_type === "corporate" ? "Entity / Trust" : "Individual Owner"}
+                        {p.owner_type === "corporate" ? "Commercial / Entity" : "Individual Deed Owner"}
                       </div>
                     </TableCell>
 
@@ -406,10 +422,28 @@ export function PropertySearch() {
 
                     <TableCell className="text-right">
                       <Badge
-                        variant={p.source === "dataforseo" ? "default" : p.source === "data_lake" ? "default" : "secondary"}
-                        className={`text-[10px] capitalize ${p.source === "dataforseo" ? "bg-emerald-600 hover:bg-emerald-700 text-white font-medium" : ""}`}
+                        variant="secondary"
+                        className={`text-[10px] capitalize font-medium ${
+                          p.source === "dataforseo"
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                            : p.source === "cadastre_deed"
+                            ? "bg-purple-600 hover:bg-purple-700 text-white"
+                            : p.source === "pdok_cadastre"
+                            ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                            : p.source === "data_lake"
+                            ? "bg-blue-600 hover:bg-blue-700 text-white"
+                            : ""
+                        }`}
                       >
-                        {p.source === "dataforseo" ? "DataForSEO Live" : p.source.replace("_", " ")}
+                        {p.source === "dataforseo"
+                          ? "DataForSEO Live"
+                          : p.source === "cadastre_deed"
+                          ? "Cadastre / Deed"
+                          : p.source === "pdok_cadastre"
+                          ? "PDOK Cadastre"
+                          : p.source === "data_lake"
+                          ? "Data Lake"
+                          : p.source.replace("_", " ")}
                       </Badge>
                     </TableCell>
                   </TableRow>
