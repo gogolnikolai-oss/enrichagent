@@ -24,7 +24,12 @@ export async function GET(request: Request) {
     maxAge: 600,
   });
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin;
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') || 'https';
+  const detectedOrigin = host ? `${proto}://${host}` : new URL(request.url).origin;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL && !process.env.NEXT_PUBLIC_APP_URL.includes('localhost'))
+    ? process.env.NEXT_PUBLIC_APP_URL
+    : detectedOrigin;
   const redirectUri = `${appUrl}/api/auth/google/callback`;
 
   const params = new URLSearchParams({
