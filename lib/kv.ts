@@ -32,7 +32,9 @@ class CloudflareKVRestClient implements KVClient {
   async put(key: string, value: unknown, options?: { expirationTtl?: number }): Promise<void> {
     const url = new URL(`${this.baseUrl}/${encodeURIComponent(key)}`);
     if (options?.expirationTtl) {
-      url.searchParams.set('expiration_ttl', String(options.expirationTtl));
+      // Cloudflare KV strictly enforces a minimum expiration_ttl of 60 seconds
+      const ttl = Math.max(60, Math.floor(options.expirationTtl));
+      url.searchParams.set('expiration_ttl', String(ttl));
     }
 
     const payload = typeof value === 'string' ? value : JSON.stringify(value);
@@ -43,7 +45,10 @@ class CloudflareKVRestClient implements KVClient {
       headers: { ...this.headers, 'Content-Type': contentType },
       body: payload,
     });
-    if (!res.ok) throw new Error(`KV PUT failed: ${res.statusText}`);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`KV PUT failed: ${res.statusText} ${errText}`);
+    }
   }
 
   async delete(key: string): Promise<void> {
@@ -96,29 +101,41 @@ export async function checkRateLimit(
   limit: number = 10,
   windowSeconds: number = 10
 ): Promise<{ success: boolean; limit: number; remaining: number; reset: number }> {
-  const now = Math.floor(Date.now() / 1000);
-  const windowKey = `ratelimit:${identifier}:${Math.floor(now / windowSeconds)}`;
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const windowKey = `ratelimit:${identifier}:${Math.floor(now / windowSeconds)}`;
 
-  const currentCount = (await kv.get<number>(windowKey, 'json')) || 0;
-  const reset = (Math.floor(now / windowSeconds) + 1) * windowSeconds;
+    const currentCount = (await kv.get<number>(windowKey, 'json')) || 0;
+    const reset = (Math.floor(now / windowSeconds) + 1) * windowSeconds;
 
-  if (currentCount >= limit) {
+    if (currentCount >= limit) {
+      return {
+        success: false,
+        limit,
+        remaining: 0,
+        reset,
+      };
+    }
+
+    // Cloudflare KV enforces a minimum TTL of 60 seconds
+    const ttl = Math.max(60, windowSeconds * 2);
+    await kv.put(windowKey, currentCount + 1, { expirationTtl: ttl });
+
     return {
-      success: false,
+      success: true,
       limit,
-      remaining: 0,
+      remaining: limit - (currentCount + 1),
       reset,
     };
+  } catch (err) {
+    console.warn('⚠️ [RateLimiter] KV check failed, failing open gracefully:', err);
+    return {
+      success: true,
+      limit,
+      remaining: limit,
+      reset: Math.floor(Date.now() / 1000) + windowSeconds,
+    };
   }
-
-  await kv.put(windowKey, currentCount + 1, { expirationTtl: windowSeconds * 2 });
-
-  return {
-    success: true,
-    limit,
-    remaining: limit - (currentCount + 1),
-    reset,
-  };
 }
 
 export const apiRateLimiter = {

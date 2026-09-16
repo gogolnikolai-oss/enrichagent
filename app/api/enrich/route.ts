@@ -17,7 +17,9 @@ const enrichRequestSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const apiKeyHeader = req.headers.get('x-api-key');
+    const apiKeyHeader =
+      req.headers.get('x-api-key') ||
+      req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
     let user: UserRecord | null = null;
 
     if (apiKeyHeader) {
