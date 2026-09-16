@@ -54,7 +54,8 @@ export async function refreshGoogleAccessToken(
  */
 export async function createGoogleLeadsSpreadsheet(
   accessToken: string,
-  title = 'EnrichAgent Discovered Leads'
+  title = 'EnrichAgent Discovered Leads',
+  sheetTitle = 'Leads'
 ): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
   const headers = [
     'Date Added',
@@ -83,7 +84,7 @@ export async function createGoogleLeadsSpreadsheet(
       sheets: [
         {
           properties: {
-            title: 'Leads',
+            title: sheetTitle,
             gridProperties: {
               frozenRowCount: 1,
             },
@@ -102,7 +103,7 @@ export async function createGoogleLeadsSpreadsheet(
 
   // Append initial Header row with formatting
   await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${sheetData.spreadsheetId}/values/Leads!A1:K1?valueInputOption=USER_ENTERED`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${sheetData.spreadsheetId}/values/${encodeURIComponent(sheetTitle)}!A1:K1?valueInputOption=USER_ENTERED`,
     {
       method: 'PUT',
       headers: {
@@ -110,7 +111,7 @@ export async function createGoogleLeadsSpreadsheet(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        range: 'Leads!A1:K1',
+        range: `${sheetTitle}!A1:K1`,
         majorDimension: 'ROWS',
         values: [headers],
       }),
@@ -128,10 +129,15 @@ export async function createGoogleLeadsSpreadsheet(
  */
 export async function appendLeadsToGoogleSheet(
   accessToken: string,
-  spreadsheetId: string,
-  leads: LeadSheetRow[]
+  rawSpreadsheetId: string,
+  leads: LeadSheetRow[],
+  sheetTitle = 'Leads'
 ): Promise<{ rowsAppended: number }> {
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+  // Extract ID if a full Google Sheets URL was pasted
+  const urlMatch = rawSpreadsheetId.match(/\/d\/([a-zA-Z0-9-_]+)/);
+  const spreadsheetId = urlMatch ? urlMatch[1] : rawSpreadsheetId.trim();
 
   const rows = leads.map((lead) => [
     now,
@@ -147,8 +153,10 @@ export async function appendLeadsToGoogleSheet(
     lead.source || '',
   ]);
 
+  // Append to sheet (if specific sheet name fails, fall back to default append)
+  const range = sheetTitle ? `${encodeURIComponent(sheetTitle)}!A:K` : 'A:K';
   const res = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/Leads!A:K:append?valueInputOption=USER_ENTERED`,
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED`,
     {
       method: 'POST',
       headers: {
@@ -156,7 +164,7 @@ export async function appendLeadsToGoogleSheet(
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        range: 'Leads!A:K',
+        range,
         majorDimension: 'ROWS',
         values: rows,
       }),

@@ -26,7 +26,9 @@ const exportPayloadSchema = z.object({
       notesOrValue: z.string().optional(),
     })
   ),
+  title: z.string().optional(),
   spreadsheetId: z.string().optional(),
+  sheetName: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -80,18 +82,25 @@ export async function POST(req: NextRequest) {
 
     let accessToken = tokenRow.api_key;
     const refreshToken = tokenRow.mcp_endpoint;
-    let spreadsheetId = validation.data.spreadsheetId;
+    let spreadsheetId = validation.data.spreadsheetId?.trim();
+    const spreadsheetTitle = validation.data.title?.trim() || 'EnrichAgent Discovered Leads';
+    const sheetName = validation.data.sheetName?.trim() || 'Leads';
     let spreadsheetUrl = spreadsheetId ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}` : '';
 
     // If no spreadsheet exists or specified, create a new one
     try {
       if (!spreadsheetId) {
-        const newSheet = await createGoogleLeadsSpreadsheet(accessToken, 'EnrichAgent Leads');
+        const newSheet = await createGoogleLeadsSpreadsheet(accessToken, spreadsheetTitle, sheetName);
         spreadsheetId = newSheet.spreadsheetId;
         spreadsheetUrl = newSheet.spreadsheetUrl;
       }
 
-      const res = await appendLeadsToGoogleSheet(accessToken, spreadsheetId, validation.data.leads as LeadSheetRow[]);
+      const res = await appendLeadsToGoogleSheet(
+        accessToken,
+        spreadsheetId,
+        validation.data.leads as LeadSheetRow[],
+        sheetName
+      );
 
       return NextResponse.json({
         success: true,
