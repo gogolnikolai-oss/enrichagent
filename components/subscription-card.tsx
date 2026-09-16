@@ -17,17 +17,23 @@ interface SubscriptionCardProps {
 export function SubscriptionCard({ plan, currentTier }: SubscriptionCardProps) {
   const [loadingType, setLoadingType] = useState<'stripe' | 'paypal' | null>(null);
   const router = useRouter();
-  const isCurrentPlan = currentTier === 'pro';
+  const isCurrentPlan = 
+    (plan.id === 'byok_monthly' && currentTier === 'byok') ||
+    (plan.id === 'pro_monthly' && (currentTier === 'pro' || currentTier === 'enterprise'));
 
   const handleStripeSubscribe = async () => {
     setLoadingType('stripe');
     try {
+      const priceId = plan.id === 'byok_monthly'
+        ? (process.env.NEXT_PUBLIC_STRIPE_PRICE_BYOK || 'price_byok_monthly')
+        : (process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO || 'price_pro_monthly');
+
       const response = await fetch('/api/stripe/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'subscription',
-          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO || 'price_pro_monthly',
+          priceId,
         }),
       });
 
@@ -55,6 +61,7 @@ export function SubscriptionCard({ plan, currentTier }: SubscriptionCardProps) {
       const response = await fetch('/api/paypal/create-subscription', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId: plan.id }),
       });
 
       const data = await response.json();
@@ -75,14 +82,16 @@ export function SubscriptionCard({ plan, currentTier }: SubscriptionCardProps) {
     }
   };
 
+  const isByok = plan.id === 'byok_monthly';
+
   return (
-    <Card className="border-primary/40 shadow-sm relative overflow-hidden bg-gradient-to-b from-card to-primary/[0.02]">
-      <div className="absolute top-0 right-0 transform translate-x-6 -translate-y-6 w-28 h-28 bg-primary/10 rounded-full blur-2xl pointer-events-none" />
+    <Card className={`shadow-sm relative overflow-hidden flex flex-col justify-between ${isByok ? 'border-purple-500/40 bg-gradient-to-b from-card to-purple-500/[0.02]' : 'border-primary/40 bg-gradient-to-b from-card to-primary/[0.02]'}`}>
+      <div className={`absolute top-0 right-0 transform translate-x-6 -translate-y-6 w-28 h-28 ${isByok ? 'bg-purple-500/10' : 'bg-primary/10'} rounded-full blur-2xl pointer-events-none`} />
       
       <CardHeader>
         <div className="flex items-center justify-between">
-          <Badge variant="default" className="flex items-center gap-1">
-            <Sparkles className="h-3 w-3" /> Recurring Plan
+          <Badge variant={isByok ? "outline" : "default"} className={`flex items-center gap-1 ${isByok ? 'text-purple-600 border-purple-400 bg-purple-50 dark:bg-purple-950/20' : ''}`}>
+            <Sparkles className="h-3 w-3" /> {isByok ? 'BYOK (Zero Markup)' : 'All-Inclusive'}
           </Badge>
           {isCurrentPlan && (
             <Badge variant="outline" className="text-green-600 border-green-600 bg-green-50 dark:bg-green-950/20">
@@ -91,7 +100,11 @@ export function SubscriptionCard({ plan, currentTier }: SubscriptionCardProps) {
           )}
         </div>
         <CardTitle className="text-2xl font-bold mt-2">{plan.name}</CardTitle>
-        <CardDescription>Everything you need for sustained automated lead generation</CardDescription>
+        <CardDescription>
+          {isByok
+            ? 'Plug in your own API keys and pay only for software & infrastructure'
+            : 'Turnkey intelligence with all API keys, mobile dials, and credits included'}
+        </CardDescription>
         <div className="mt-4 flex items-baseline gap-1">
           <span className="text-4xl font-extrabold tracking-tight">${plan.price}</span>
           <span className="text-muted-foreground font-medium">/{plan.interval}</span>

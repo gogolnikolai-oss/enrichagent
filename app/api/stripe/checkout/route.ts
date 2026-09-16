@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { type, priceId, packSize } = body as { type: 'subscription' | 'credits'; priceId?: string; packSize?: 500 | 2500 | 10000 };
+    const { type, priceId, packSize } = body as { type: 'subscription' | 'credits'; priceId?: string; packSize?: number };
 
     if (type !== 'subscription' && type !== 'credits') {
       return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
@@ -26,23 +26,27 @@ export async function POST(req: NextRequest) {
       if (!packSize) {
         return NextResponse.json({ error: 'packSize is required for credits' }, { status: 400 });
       }
-      credits = packSize;
+      credits = Number(packSize);
 
-      switch (packSize) {
-        case 500:
-          finalPriceId = process.env.STRIPE_PRICE_CREDITS_500;
+      switch (credits) {
+        case 250:
+          finalPriceId = process.env.STRIPE_PRICE_CREDITS_250 || 'price_credits_250';
           break;
-        case 2500:
-          finalPriceId = process.env.STRIPE_PRICE_CREDITS_2500;
+        case 1000:
+          finalPriceId = process.env.STRIPE_PRICE_CREDITS_1000 || 'price_credits_1000';
+          break;
+        case 3000:
+          finalPriceId = process.env.STRIPE_PRICE_CREDITS_3000 || 'price_credits_3000';
           break;
         case 10000:
-          finalPriceId = process.env.STRIPE_PRICE_CREDITS_10000;
+          finalPriceId = process.env.STRIPE_PRICE_CREDITS_10000 || 'price_credits_10000';
           break;
         default:
-          return NextResponse.json({ error: 'Invalid pack size' }, { status: 400 });
+          finalPriceId = `price_credits_${credits}`;
+          break;
       }
     } else {
-      finalPriceId = priceId || process.env.STRIPE_PRICE_PRO_MONTHLY;
+      finalPriceId = priceId || process.env.STRIPE_PRICE_PRO_MONTHLY || 'price_pro_monthly';
     }
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';

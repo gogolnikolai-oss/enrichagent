@@ -108,54 +108,73 @@ export default function Home() {
               <p className="text-muted-foreground mt-4">Choose the right plan for your growth</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5 max-w-7xl mx-auto">
               {[
-                { name: "Starter Pack", price: "$19", credits: "500 Credits" },
-                { name: "Growth Pack", price: "$79", credits: "2,500 Credits", popular: true },
-                { name: "Scale Pack", price: "$249", credits: "10,000 Credits" }
+                { name: "Micro Starter", price: "$10", credits: "250 Credits", badge: "Taste Test" },
+                { name: "Growth Pack", price: "$29", credits: "1,000 Credits", popular: true },
+                { name: "Scale Pack", price: "$79", credits: "3,000 Credits" },
+                { name: "BYOK Software", price: "$19", credits: "Software-Only /mo", byok: true },
               ].map((plan, i) => (
-                <Card key={i} className={plan.popular ? "border-primary shadow-lg relative" : ""}>
+                <Card key={i} className={plan.popular ? "border-primary shadow-lg relative flex flex-col justify-between" : "flex flex-col justify-between"}>
                   {plan.popular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Most Popular</Badge>
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 shadow-sm">Most Popular</Badge>
+                  )}
+                  {plan.badge && (
+                    <Badge variant="outline" className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 text-white border-emerald-600 shadow-sm text-[11px]">
+                      {plan.badge}
+                    </Badge>
                   )}
                   <CardHeader>
-                    <CardTitle>{plan.name}</CardTitle>
-                    <div className="mt-4">
-                      <span className="text-4xl font-bold">{plan.price}</span>
+                    <CardTitle className="text-lg">{plan.name}</CardTitle>
+                    <div className="mt-2">
+                      <span className="text-3xl font-bold">{plan.price}</span>
+                      {plan.byok && <span className="text-xs text-muted-foreground ml-1">/mo</span>}
                     </div>
                     <CardDescription>{plan.credits}</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <ul className="space-y-3">
-                      <li className="flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-primary" /> Never expire</li>
-                      <li className="flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-primary" /> API access</li>
-                      <li className="flex items-center gap-2 text-sm"><Check className="h-4 w-4 text-primary" /> Email support</li>
+                    <ul className="space-y-2.5">
+                      <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5 text-primary" /> {plan.byok ? "Bring own API keys" : "Credits never expire"}</li>
+                      <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5 text-primary" /> Excel & CSV exports</li>
+                      <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5 text-primary" /> Claude & Cursor MCP</li>
                     </ul>
                   </CardContent>
                   <CardFooter>
-                    <Button className="w-full" variant={plan.popular ? "default" : "outline"}>Buy Credits</Button>
+                    <Link href="/dashboard/billing" className="w-full">
+                      <Button className="w-full" size="sm" variant={plan.popular ? "default" : "outline"}>
+                        {plan.byok ? "Subscribe" : "Get Pack"}
+                      </Button>
+                    </Link>
                   </CardFooter>
                 </Card>
               ))}
 
-              <Card className="bg-primary text-primary-foreground">
+              <Card className="bg-primary text-primary-foreground flex flex-col justify-between shadow-xl">
                 <CardHeader>
-                  <CardTitle>Pro Subscription</CardTitle>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold">$499</span>
-                    <span className="text-primary-foreground/80">/mo</span>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">Pro All-Inclusive</CardTitle>
+                    <Badge variant="secondary" className="text-[10px] uppercase">Turnkey</Badge>
                   </div>
-                  <CardDescription className="text-primary-foreground/80">Unlimited basic, 50k premium</CardDescription>
+                  <div className="mt-2">
+                    <span className="text-3xl font-bold">$39</span>
+                    <span className="text-primary-foreground/80 text-sm">/mo</span>
+                  </div>
+                  <CardDescription className="text-primary-foreground/80 text-xs">1,200 credits / mo included</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ul className="space-y-3">
-                    <li className="flex items-center gap-2 text-sm"><Check className="h-4 w-4" /> Dedicated account manager</li>
-                    <li className="flex items-center gap-2 text-sm"><Check className="h-4 w-4" /> Custom workflows</li>
-                    <li className="flex items-center gap-2 text-sm"><Check className="h-4 w-4" /> Priority processing</li>
+                  <ul className="space-y-2.5">
+                    <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5" /> All API keys provided</li>
+                    <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5" /> Direct dials & mobile phones</li>
+                    <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5" /> Startups & Real Estate data</li>
+                    <li className="flex items-center gap-2 text-xs"><Check className="h-3.5 w-3.5" /> Priority waterfall speed</li>
                   </ul>
                 </CardContent>
                 <CardFooter>
-                  <Button className="w-full bg-background text-foreground hover:bg-background/90">Subscribe</Button>
+                  <Link href="/dashboard/billing" className="w-full">
+                    <Button className="w-full bg-background text-foreground hover:bg-background/90" size="sm">
+                      Go Pro
+                    </Button>
+                  </Link>
                 </CardFooter>
               </Card>
             </div>

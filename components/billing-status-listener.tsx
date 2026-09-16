@@ -46,7 +46,8 @@ function StatusListenerInner() {
         });
     } else if (paypalSubSuccess) {
       processedRef.current = true;
-      toast.success("PayPal subscription activated! Your account is upgraded to Pro.", {
+      const subPlan = searchParams.get("plan") || "pro";
+      toast.success(`PayPal subscription activated! Your account is upgraded to ${subPlan === 'byok' ? 'BYOK Plan' : 'Pro Plan'}.`, {
         duration: 5000,
       });
       router.replace("/dashboard/billing");

@@ -87,9 +87,10 @@ export const CREDIT_COSTS = {
 
 // Credit pack definitions
 export const CREDIT_PACKS = [
-  { credits: 500, price: 19, label: 'Starter Pack' },
-  { credits: 2500, price: 79, label: 'Growth Pack' },
-  { credits: 10000, price: 249, label: 'Scale Pack' },
+  { credits: 250, price: 10, label: 'Micro Starter' },
+  { credits: 1000, price: 29, label: 'Growth Pack' },
+  { credits: 3000, price: 79, label: 'Scale Pack' },
+  { credits: 10000, price: 229, label: 'Enterprise Pack' },
 ] as const;
 
 export interface CreditPack {
@@ -109,18 +110,34 @@ export interface SubscriptionPlan {
 
 export const SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
   {
-    id: 'pro_monthly',
-    name: 'Pro Plan',
-    price: 29,
+    id: 'byok_monthly',
+    name: 'BYOK Plan (Software-Only)',
+    price: 19,
     interval: 'month',
-    creditsMonthly: 1000,
+    creditsMonthly: 200,
     features: [
-      '1,000 monthly credits included',
-      'Instant Data Lake lookups (0ms)',
-      'Sequential waterfall fallback',
-      'Direct mobile phone lookups',
+      'Bring Your Own API Keys (Google Maps, DataForSEO, Hunter)',
+      '100% Data Lake & Edge Caching access',
+      'Unlimited CSV & Excel exports',
+      'Claude & Cursor MCP Server integration',
+      'Zero platform data markup',
+      'Full access to B2B, Local, Startups & Properties',
+    ],
+  },
+  {
+    id: 'pro_monthly',
+    name: 'Pro Plan (All-Inclusive)',
+    price: 39,
+    interval: 'month',
+    creditsMonthly: 1200,
+    features: [
+      'All API keys included (no technical setup needed)',
+      '1,200 monthly credits included (~$48 value)',
+      'Verified mobile numbers & direct dials',
+      'SEC EDGAR Startup Funding intelligence',
+      'Property & Chalet owner skip-tracing',
       'Claude & Cursor MCP Server access',
-      'CRM & Zapier Webhook integrations',
+      'Priority waterfall speed & support',
     ],
   },
 ];

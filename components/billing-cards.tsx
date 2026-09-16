@@ -81,9 +81,10 @@ export function BillingCards({ creditPacks }: BillingCardsProps) {
   };
 
   return (
-    <div className="grid md:grid-cols-3 gap-6">
-      {creditPacks.map((pack, index) => {
-        const isMiddle = index === 1;
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+      {creditPacks.map((pack) => {
+        const isPopular = pack.credits === 1000;
+        const isEntry = pack.credits === 250;
         const packName = pack.label || pack.name || `${pack.credits.toLocaleString()} Credits`;
         const isStripeLoading = loadingId === `stripe-${pack.credits}`;
         const isPayPalLoading = loadingId === `paypal-${pack.credits}`;
@@ -94,13 +95,21 @@ export function BillingCards({ creditPacks }: BillingCardsProps) {
             key={pack.credits} 
             className={cn(
               "relative flex flex-col transition-all duration-200 hover:shadow-md",
-              isMiddle && "border-primary shadow-sm ring-1 ring-primary/20"
+              isPopular && "border-primary shadow-sm ring-1 ring-primary/20",
+              isEntry && "border-emerald-500/40"
             )}
           >
-            {isMiddle && (
+            {isPopular && (
               <div className="absolute -top-3 left-0 right-0 flex justify-center">
-                <Badge className="bg-primary text-primary-foreground font-semibold flex items-center gap-1 shadow-sm">
+                <Badge className="bg-primary text-primary-foreground font-semibold flex items-center gap-1 shadow-sm text-xs">
                   <Zap className="h-3 w-3" /> Most Popular
+                </Badge>
+              </div>
+            )}
+            {isEntry && (
+              <div className="absolute -top-3 left-0 right-0 flex justify-center">
+                <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600 font-semibold flex items-center gap-1 shadow-sm text-xs">
+                  🚀 Taste Test ($10)
                 </Badge>
               </div>
             )}
@@ -108,7 +117,7 @@ export function BillingCards({ creditPacks }: BillingCardsProps) {
             <CardHeader className="text-center pt-8 pb-4">
               <CardTitle className="text-xl">{packName}</CardTitle>
               <div className="mt-4 flex items-center justify-center gap-2">
-                <Coins className={cn("h-8 w-8", isMiddle ? "text-primary" : "text-muted-foreground")} />
+                <Coins className={cn("h-8 w-8", isPopular ? "text-primary" : "text-muted-foreground")} />
                 <span className="text-4xl font-bold tracking-tighter">
                   {pack.credits.toLocaleString()}
                 </span>
@@ -126,7 +135,7 @@ export function BillingCards({ creditPacks }: BillingCardsProps) {
             <CardFooter className="flex flex-col gap-2 pt-2">
               <Button 
                 className="w-full" 
-                variant={isMiddle ? "default" : "secondary"}
+                variant={isPopular ? "default" : isEntry ? "default" : "secondary"}
                 size="default"
                 onClick={() => handleStripeCheckout(pack.credits)}
                 disabled={isAnyLoading}

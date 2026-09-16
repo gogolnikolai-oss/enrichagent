@@ -12,13 +12,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const body = await req.json().catch(() => ({}));
+    const plan = body.planId === 'byok_monthly' ? 'byok' : 'pro';
+
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const returnUrl = `${origin}/dashboard/billing?paypal_sub_success=true`;
+    const returnUrl = `${origin}/dashboard/billing?paypal_sub_success=true&plan=${plan}`;
     const cancelUrl = `${origin}/dashboard/billing?paypal_cancel=true`;
 
     const customId = JSON.stringify({
       userId: session.userId,
-      plan: 'pro',
+      plan,
       type: 'subscription',
     });
 

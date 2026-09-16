@@ -106,8 +106,10 @@ export default async function BillingPage() {
             Subscribe monthly via <strong>Credit Card (Stripe)</strong> or <strong>PayPal</strong>. Cancel anytime.
           </p>
         </div>
-        <div className="grid md:grid-cols-1 gap-6 max-w-2xl">
-          <SubscriptionCard plan={SUBSCRIPTION_PLANS[0]} currentTier={rawTier} />
+        <div className="grid md:grid-cols-2 gap-6 max-w-4xl">
+          {SUBSCRIPTION_PLANS.map((plan) => (
+            <SubscriptionCard key={plan.id} plan={plan} currentTier={rawTier} />
+          ))}
         </div>
       </div>
 
