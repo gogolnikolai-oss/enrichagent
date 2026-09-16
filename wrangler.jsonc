@@ -1,20 +1,45 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "enrichagent",
-  "compatibility_date": "2025-09-02",
-  "compatibility_flags": ["nodejs_compat"],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "enrichagent-db",
-      "database_id": "305c3370-5acd-4d9a-bcd6-2f5f715fa069",
-      "migrations_dir": "cloudflare"
-    }
-  ],
-  "kv_namespaces": [
-    {
-      "binding": "KV",
-      "id": "c3a9be57e990455c842c3fe3255e4284"
-    }
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	"name": "enrichagent",
+	"compatibility_date": "2026-09-16",
+	"compatibility_flags": [
+		"nodejs_compat",
+		"global_fetch_strictly_public"
+	],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "enrichagent"
+		}
+	],
+	"r2_buckets": [
+		{
+			"binding": "NEXT_INC_CACHE_R2_BUCKET",
+			"bucket_name": "enrichagent-opennext-cache"
+		}
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "enrichagent-db",
+			"database_id": "305c3370-5acd-4d9a-bcd6-2f5f715fa069"
+		}
+	],
+	"kv_namespaces": [
+		{
+			"binding": "KV",
+			"id": "c3a9be57e990455c842c3fe3255e4284"
+		}
+	],
+	"vars": {
+		"CLOUDFLARE_ACCOUNT_ID": "dccac995ab9c4a781b649735bb7e24dc",
+		"CLOUDFLARE_D1_DATABASE_ID": "305c3370-5acd-4d9a-bcd6-2f5f715fa069",
+		"CLOUDFLARE_KV_NAMESPACE_ID": "c3a9be57e990455c842c3fe3255e4284",
+		"AUTH_SECRET": "032e489da3a5809cf1c3171c93837923be392b0eb266556eb59cb0499fc7c58c"
+	}
 }
