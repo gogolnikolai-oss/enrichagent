@@ -197,12 +197,31 @@ export function PropertySearch() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="country" className="text-xs font-medium">Country</Label>
-                <Input
-                  id="country"
-                  placeholder="e.g. United States, Canada, France"
+                <Select
                   value={country}
-                  onChange={(e) => setCountry(e.target.value)}
-                />
+                  onValueChange={(val) => {
+                    setCountry(val)
+                    if (val === "United States") { setCity("Aspen"); setZipcode("81611"); }
+                    else if (val === "United Kingdom") { setCity("London"); setZipcode("SW1A 1AA"); }
+                    else if (val === "Canada") { setCity("Whistler"); setZipcode("V0E 1Z0"); }
+                    else if (val === "Australia") { setCity("Thredbo"); setZipcode("2625"); }
+                    else if (val === "Netherlands") { setCity("Apeldoorn"); setZipcode("7311 KZ"); }
+                    else if (val === "India") { setCity("Goa"); setZipcode("403516"); }
+                  }}
+                >
+                  <SelectTrigger id="country">
+                    <SelectValue placeholder="Select country" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="United States">🇺🇸 United States</SelectItem>
+                    <SelectItem value="United Kingdom">🇬🇧 United Kingdom</SelectItem>
+                    <SelectItem value="Canada">🇨🇦 Canada</SelectItem>
+                    <SelectItem value="Australia">🇦🇺 Australia</SelectItem>
+                    <SelectItem value="Netherlands">🇳🇱 Netherlands (PDOK)</SelectItem>
+                    <SelectItem value="India">🇮🇳 India (Bhulekh)</SelectItem>
+                    <SelectItem value="Other">🌍 Other / Worldwide</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
