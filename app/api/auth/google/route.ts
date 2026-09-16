@@ -24,6 +24,17 @@ export async function GET(request: Request) {
     maxAge: 600,
   });
 
+  const { searchParams } = new URL(request.url);
+  const isSheetsIntent = searchParams.get('intent') === 'sheets';
+
+  cookieStore.set('oauth_intent', isSheetsIntent ? 'sheets' : 'login', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
+  });
+
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host');
   const proto = request.headers.get('x-forwarded-proto') || 'https';
   const detectedOrigin = host ? `${proto}://${host}` : new URL(request.url).origin;
@@ -32,15 +43,23 @@ export async function GET(request: Request) {
     : detectedOrigin;
   const redirectUri = `${appUrl}/api/auth/google/callback`;
 
+  const scope = isSheetsIntent
+    ? 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file'
+    : 'openid email profile';
+
   const params = new URLSearchParams({
     client_id: googleClientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
+    scope,
     state,
     access_type: 'offline',
-    prompt: 'consent select_account',
+    prompt: isSheetsIntent ? 'consent' : 'select_account',
   });
+
+  if (isSheetsIntent) {
+    params.set('include_granted_scopes', 'true');
+  }
 
   return NextResponse.redirect(
     `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`

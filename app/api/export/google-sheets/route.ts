@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
         {
           connected: false,
           error: 'Google Account not connected with Sheets permission.',
-          connectUrl: '/api/auth/google',
+          connectUrl: '/api/auth/google?intent=sheets',
         },
         { status: 403 }
       );

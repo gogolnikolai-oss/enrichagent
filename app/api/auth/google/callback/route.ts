@@ -14,11 +14,14 @@ export async function GET(request: Request) {
   let userEmail = 'demo@enrichagent.com';
   let googleSub = 'google-mock-user-123';
   let tokenData: any = null;
+  let intent = 'login';
 
   if (!isMock) {
     const cookieStore = await cookies();
     const storedState = cookieStore.get('oauth_state')?.value;
+    intent = cookieStore.get('oauth_intent')?.value || 'login';
     cookieStore.delete('oauth_state');
+    cookieStore.delete('oauth_intent');
 
     if (!code || !state || !storedState || state !== storedState) {
       return NextResponse.redirect(new URL('/login?error=Invalid+OAuth+state', request.url));
@@ -133,5 +136,7 @@ export async function GET(request: Request) {
     tier: user.tier,
   });
 
-  return NextResponse.redirect(new URL('/dashboard', request.url));
+  return NextResponse.redirect(
+    new URL(intent === 'sheets' ? '/dashboard?connected=sheets' : '/dashboard', request.url)
+  );
 }
