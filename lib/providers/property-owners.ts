@@ -147,6 +147,64 @@ function normalizeDataForSeoCountry(country: string): string {
 }
 
 /**
+ * Scrapes website /about-us or JSON-LD schema to extract the founder or owner's personal human name.
+ */
+async function extractPrincipalFromWebsite(websiteUrl: string): Promise<string | null> {
+  try {
+    const origin = new URL(websiteUrl).origin;
+    const candidates = [
+      origin + '/about-us',
+      origin + '/about',
+      origin + '/our-story',
+      origin + '/notre-histoire',
+      origin + '/a-propos',
+      origin,
+    ];
+
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, {
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+          signal: AbortSignal.timeout(3500),
+        });
+        if (!res.ok) continue;
+        const html = await res.text();
+
+        const regexes = [
+          /(?:founded by|co-founded by|fondé par|proprio|propriétaire)\s*[:–-]?\s*([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)/i,
+          /Founder\s*(?:&|and)?\s*CEO\s*[:–-]?\s*([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)/i,
+          /CEO\s*(?:&|and)?\s*Founder\s*[:–-]?\s*([A-Z][a-z]+(?:\s+[A-Z]\.?)?\s+[A-Z][a-z]+)/i,
+          /"founder"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/i,
+          /"author"\s*:\s*\{[^}]*"name"\s*:\s*"([^"]+)"/i,
+        ];
+
+        for (const r of regexes) {
+          const m = html.match(r);
+          if (m && m[1]) {
+            const clean = m[1].replace(/<[^>]+>/g, '').trim();
+            if (
+              clean.length > 3 &&
+              clean.length < 40 &&
+              !clean.toLowerCase().includes('chalet') &&
+              !clean.toLowerCase().includes('hotel') &&
+              !clean.toLowerCase().includes('resort') &&
+              !clean.toLowerCase().includes('mont')
+            ) {
+              return clean;
+            }
+          }
+        }
+      } catch {
+        // try next candidate
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+/**
  * Live queries DataForSEO Google Maps SERP API.
  */
 async function fetchDataForSeoProperties(
@@ -216,7 +274,13 @@ async function fetchDataForSeoProperties(
       const titleParts = title.split(/\s*[-–|:]\s*/);
       const cleanPropertyName = titleParts[0]?.trim() || title;
 
-      const isCorporate =
+      // Extract identified founder/owner from website if available
+      let identifiedPrincipal: string | null = null;
+      if (website) {
+        identifiedPrincipal = await extractPrincipalFromWebsite(website);
+      }
+
+      const isCorporate = !identifiedPrincipal && (
         title.toLowerCase().includes('inc') ||
         title.toLowerCase().includes('ltd') ||
         title.toLowerCase().includes('llc') ||
@@ -224,16 +288,19 @@ async function fetchDataForSeoProperties(
         title.toLowerCase().includes('management') ||
         title.toLowerCase().includes('holdings') ||
         title.toLowerCase().includes('group') ||
-        title.toLowerCase().includes('hotel');
+        title.toLowerCase().includes('hotel')
+      );
 
       // Professional owner / operating entity
-      let ownerName = cleanPropertyName;
-      if (isCorporate) {
-        ownerName = cleanPropertyName.match(/(inc|ltd|llc|holdings|management|group)/i)
-          ? cleanPropertyName
-          : `${cleanPropertyName} Management`;
-      } else {
-        ownerName = `${cleanPropertyName} (Host / Operator)`;
+      let ownerName = identifiedPrincipal;
+      if (!ownerName) {
+        if (isCorporate) {
+          ownerName = cleanPropertyName.match(/(inc|ltd|llc|holdings|management|group)/i)
+            ? cleanPropertyName
+            : `${cleanPropertyName} Management`;
+        } else {
+          ownerName = `${cleanPropertyName} (Host / Operator)`;
+        }
       }
 
       const domain = item.domain || (website ? new URL(website).hostname.replace(/^www\./, '') : null);
@@ -256,8 +323,8 @@ async function fetchDataForSeoProperties(
         area_zipcode: itemZip,
         state: itemRegion,
         country: country,
-        owner_name: ownerName,
-        owner_type: isCorporate ? 'corporate' : 'individual',
+        owner_name: ownerName || `${cleanPropertyName} (Host / Operator)`,
+        owner_type: identifiedPrincipal ? 'individual' : (isCorporate ? 'corporate' : 'individual'),
         mobile_phone: phone ? phone.replace(/[^0-9+]/g, '') : null,
         direct_dial_phone: phone,
         email: email,
