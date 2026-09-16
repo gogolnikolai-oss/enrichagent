@@ -250,19 +250,30 @@ async function fetchDataForSeoProperties(
       const phone = item.phone || null;
       const website = item.url || (item.domain ? `https://${item.domain}` : null);
 
-      const cleanTitle = title.replace(/[^\w\s-]/g, '').trim();
+      // Parse clean property title (e.g., "Chalets La Belle Vie" from "Chalets La Belle Vie - Chalets locatifs à Mont-Tremblant")
+      const titleParts = title.split(/\s*[-–|:]\s*/);
+      const cleanPropertyName = titleParts[0]?.trim() || title;
+
       const isCorporate =
         title.toLowerCase().includes('inc') ||
         title.toLowerCase().includes('ltd') ||
         title.toLowerCase().includes('llc') ||
         title.toLowerCase().includes('resort') ||
-        title.toLowerCase().includes('chalet') ||
-        title.toLowerCase().includes('cottage') ||
         title.toLowerCase().includes('management') ||
         title.toLowerCase().includes('holdings') ||
+        title.toLowerCase().includes('group') ||
         title.toLowerCase().includes('hotel');
 
-      const ownerName = isCorporate ? `${cleanTitle} Holdings` : `${cleanTitle} Proprietor`;
+      // Professional owner / operating entity
+      let ownerName = cleanPropertyName;
+      if (isCorporate) {
+        ownerName = cleanPropertyName.match(/(inc|ltd|llc|holdings|management|group)/i)
+          ? cleanPropertyName
+          : `${cleanPropertyName} Management`;
+      } else {
+        ownerName = `${cleanPropertyName} (Host / Operator)`;
+      }
+
       const domain = item.domain || (website ? new URL(website).hostname.replace(/^www\./, '') : null);
       const email = domain ? `info@${domain.replace(/^www\./, '')}` : null;
 
@@ -275,7 +286,7 @@ async function fetchDataForSeoProperties(
 
       leads.push({
         id: crypto.randomUUID(),
-        property_name: title,
+        property_name: cleanPropertyName,
         property_type: detectedType,
         address: address,
         unit: null,
