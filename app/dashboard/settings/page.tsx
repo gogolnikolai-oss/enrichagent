@@ -32,6 +32,7 @@ export default async function SettingsPage() {
 
   const googleKeyRow = providerRows.results?.find((r) => r.provider === "google_maps");
   const dataforseoRow = providerRows.results?.find((r) => r.provider === "dataforseo");
+  const skipTraceRow = providerRows.results?.find((r) => r.provider === "skip_trace");
   const mcpRow = providerRows.results?.find((r) => r.provider === "custom_mcp");
 
   async function updateWebhook(formData: FormData) {
@@ -64,6 +65,7 @@ export default async function SettingsPage() {
         <ProvidersCard
           initialGoogleKey={googleKeyRow?.api_key || ""}
           initialDataforseoKey={dataforseoRow?.api_key || ""}
+          initialSkipTraceKey={skipTraceRow?.api_key || ""}
           initialMcpUrl={mcpRow?.mcp_endpoint || ""}
         />
 

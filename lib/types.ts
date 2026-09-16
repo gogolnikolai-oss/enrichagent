@@ -185,9 +185,43 @@ export interface StartupSearchRequest {
 export interface UserProviderConfig {
   id: string;
   userId: string;
-  provider: 'google_maps' | 'dataforseo' | 'hunter' | 'custom_mcp';
+  provider: 'google_maps' | 'dataforseo' | 'hunter' | 'skip_trace' | 'custom_mcp';
   apiKey?: string;
   mcpEndpoint?: string;
   enabled: boolean;
 }
 
+// --- Property, Chalet, Cottage & Condo Owners Types ---
+export type PropertyType = 'all' | 'chalet' | 'cottage' | 'condo' | 'residential' | 'vacation_rental';
+
+export interface PropertyLead {
+  id: string;
+  property_name: string;
+  property_type: PropertyType;
+  address: string;
+  unit: string | null;
+  city: string;
+  area_zipcode: string;
+  state: string | null;
+  country: string;
+  owner_name: string;
+  owner_type: 'individual' | 'corporate';
+  mobile_phone: string | null;
+  direct_dial_phone: string | null;
+  email: string | null;
+  mailing_address: string | null;
+  estimated_value_usd: number | null;
+  source: 'google_places' | 'osm_overpass' | 'county_gis' | 'skip_trace' | 'data_lake';
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PropertySearchRequest {
+  propertyType: PropertyType;
+  city?: string;
+  areaOrZipcode?: string;
+  country?: string;
+  requireMobile?: boolean;
+  requireEmail?: boolean;
+  limit?: number;
+}

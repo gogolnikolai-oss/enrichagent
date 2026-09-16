@@ -114,8 +114,33 @@ CREATE TABLE IF NOT EXISTS user_provider_keys (
   UNIQUE(user_id, provider)
 );
 
+-- Property, Chalet, Cottage & Condo Owners Data Lake
+CREATE TABLE IF NOT EXISTS properties_leads (
+  id TEXT PRIMARY KEY,
+  property_name TEXT NOT NULL,
+  property_type TEXT NOT NULL, -- 'chalet', 'cottage', 'condo', 'residential', 'vacation_rental'
+  address TEXT NOT NULL,
+  unit TEXT,
+  city TEXT NOT NULL,
+  area_zipcode TEXT NOT NULL,
+  state TEXT,
+  country TEXT NOT NULL DEFAULT 'United States',
+  owner_name TEXT NOT NULL,
+  owner_type TEXT NOT NULL DEFAULT 'individual', -- 'individual', 'corporate'
+  mobile_phone TEXT,
+  direct_dial_phone TEXT,
+  email TEXT,
+  mailing_address TEXT,
+  estimated_value_usd INTEGER,
+  source TEXT DEFAULT 'google_places', -- 'google_places', 'osm_overpass', 'county_gis', 'skip_trace', 'data_lake'
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_local_biz_loc ON local_businesses(city, category);
 CREATE INDEX IF NOT EXISTS idx_local_biz_pincode ON local_businesses(area_pincode);
 CREATE INDEX IF NOT EXISTS idx_startups_date ON startups(funding_date);
 CREATE INDEX IF NOT EXISTS idx_startups_industry ON startups(industry);
-
+CREATE INDEX IF NOT EXISTS idx_properties_loc ON properties_leads(city, property_type);
+CREATE INDEX IF NOT EXISTS idx_properties_zipcode ON properties_leads(area_zipcode);
+CREATE INDEX IF NOT EXISTS idx_properties_owner ON properties_leads(owner_name);

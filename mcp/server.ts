@@ -181,6 +181,51 @@ server.tool(
   }
 );
 
+// Tool 5: search_property_owners (Property, Chalet, Cottage & Condo Owners)
+server.tool(
+  'search_property_owners',
+  'Find property, luxury chalet, cottage, and condo owners by city, area, or zipcode. Returns owner name, verified mobile number, direct dial, email address, property name, and street address using county parcel data and skip tracing.',
+  {
+    propertyType: z.enum(['all', 'chalet', 'cottage', 'condo', 'residential', 'vacation_rental']).default('all').describe("Property category: 'chalet', 'cottage', 'condo', 'residential', 'vacation_rental', or 'all'"),
+    city: z.string().optional().describe("City or municipality (e.g., 'Aspen', 'Miami', 'Lake Tahoe')"),
+    areaOrZipcode: z.string().optional().describe("Area, zipcode or postal code (e.g., '81611', '33139')"),
+    country: z.string().default("United States").describe("Country name (e.g., 'United States', 'Canada', 'France')"),
+    requireMobile: z.boolean().default(false).describe("Only return leads with verified mobile phone numbers"),
+    requireEmail: z.boolean().default(false).describe("Only return leads with verified email addresses"),
+    limit: z.number().default(15).describe("Maximum number of property owners to return (default 15)")
+  },
+  async ({ propertyType, city, areaOrZipcode, country, requireMobile, requireEmail, limit }) => {
+    try {
+      const apiKey = getApiKey();
+      const baseUrl = getBaseUrl();
+
+      const response = await fetch(`${baseUrl}/api/properties`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey
+        },
+        body: JSON.stringify({ propertyType, city, areaOrZipcode, country, requireMobile, requireEmail, limit })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Property owners search failed with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return {
+        content: [{ type: 'text', text: JSON.stringify(data, null, 2) }]
+      };
+    } catch (error) {
+      console.error('Error in search_property_owners:', error);
+      return {
+        content: [{ type: 'text', text: `Error: ${error instanceof Error ? error.message : String(error)}` }],
+        isError: true
+      };
+    }
+  }
+);
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);

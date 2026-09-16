@@ -12,16 +12,19 @@ import { Badge } from "@/components/ui/badge"
 interface ProvidersCardProps {
   initialGoogleKey?: string
   initialDataforseoKey?: string
+  initialSkipTraceKey?: string
   initialMcpUrl?: string
 }
 
 export function ProvidersCard({
   initialGoogleKey = "",
   initialDataforseoKey = "",
+  initialSkipTraceKey = "",
   initialMcpUrl = "",
 }: ProvidersCardProps) {
   const [googleKey, setGoogleKey] = useState(initialGoogleKey)
   const [dataforseoKey, setDataforseoKey] = useState(initialDataforseoKey)
+  const [skipTraceKey, setSkipTraceKey] = useState(initialSkipTraceKey)
   const [mcpUrl, setMcpUrl] = useState(initialMcpUrl)
   const [saving, setSaving] = useState(false)
 
@@ -118,6 +121,38 @@ export function ProvidersCard({
               size="sm"
               disabled={saving}
               onClick={() => handleSave("dataforseo", dataforseoKey)}
+            >
+              <Save className="h-4 w-4 mr-1" /> Save
+            </Button>
+          </div>
+        </div>
+
+        {/* Skip Tracing Provider */}
+        <div className="p-4 border rounded-lg space-y-3 bg-muted/20">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Key className="h-4 w-4 text-emerald-500" />
+              <span className="font-semibold text-sm">Real Estate Skip Tracing API (Tracerfy / DataZapp / Searchbug)</span>
+            </div>
+            <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-300">
+              ~$0.02 / Match
+            </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Connect your pay-as-you-go Skip Tracing API key to resolve verified mobile phones, landlines, and direct emails for property & chalet owners without monthly subscriptions.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="password"
+              placeholder="Enter Tracerfy or DataZapp API Key..."
+              value={skipTraceKey}
+              onChange={(e) => setSkipTraceKey(e.target.value)}
+              className="text-sm font-mono"
+            />
+            <Button
+              size="sm"
+              disabled={saving}
+              onClick={() => handleSave("skip_trace", skipTraceKey)}
             >
               <Save className="h-4 w-4 mr-1" /> Save
             </Button>
