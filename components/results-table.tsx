@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Download, Send, Eye, EyeOff, Bookmark } from "lucide-react"
+import { Download, Send, Eye, EyeOff, Bookmark, FileSpreadsheet, Loader2, ExternalLink } from "lucide-react"
+import { toast } from "sonner"
 import * as xlsx from "xlsx"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -82,6 +83,53 @@ export function ResultsTable({ results }: { results: EnrichmentResult[] }) {
     xlsx.writeFile(wb, "leads.xlsx")
   }
 
+  const [syncingSheets, setSyncingSheets] = useState(false)
+  const [googleSheetUrl, setGoogleSheetUrl] = useState<string | null>(null)
+
+  const handleSyncGoogleSheets = async () => {
+    if (selectedLeads.length === 0) return
+    setSyncingSheets(true)
+    try {
+      const payload = {
+        leads: selectedLeads.map((r) => ({
+          name: `${r.contact?.first_name || ""} ${r.contact?.last_name || ""}`.trim() || "Lead Contact",
+          typeOrTitle: r.contact?.title || "Executive",
+          companyOrProperty: r.company?.name || r.contact?.company_domain || "",
+          addressOrDomain: r.company?.domain || r.contact?.company_domain || "",
+          cityOrState: (r.company?.address as any)?.city || "",
+          countryOrZip: (r.company?.address as any)?.country || "US",
+          phone: r.contact?.mobile_phone || r.contact?.direct_dial || "",
+          email: r.contact?.email || "",
+          source: r.contact?.source || "enrichment",
+          notesOrValue: r.company?.industry || "",
+        })),
+      }
+
+      const res = await fetch("/api/export/google-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.connectUrl) {
+          toast.info("Connecting Google Account for Sheets export...")
+          window.location.href = data.connectUrl
+          return
+        }
+        throw new Error(data.error || "Failed to sync to Google Sheets")
+      }
+
+      setGoogleSheetUrl(data.spreadsheetUrl)
+      toast.success(`Appended ${data.rowsAppended} leads to Google Sheets!`)
+    } catch (err: any) {
+      toast.error(err.message || "Google Sheets sync failed")
+    } finally {
+      setSyncingSheets(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {selectedIds.size > 0 && (
@@ -97,6 +145,33 @@ export function ResultsTable({ results }: { results: EnrichmentResult[] }) {
             <Download className="h-4 w-4 mr-2" />
             XLSX
           </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={handleSyncGoogleSheets}
+            disabled={syncingSheets}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            {syncingSheets ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+            )}
+            {syncingSheets ? "Syncing..." : "Sync Google Sheets"}
+          </Button>
+          {googleSheetUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="text-emerald-600 border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+            >
+              <a href={googleSheetUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open Sheet
+              </a>
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={() => setIsExportOpen(true)}>
             <Send className="h-4 w-4 mr-2" />
             Webhook

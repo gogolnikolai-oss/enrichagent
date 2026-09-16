@@ -31,10 +31,10 @@ export async function GET(request: Request) {
     client_id: googleClientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'openid email profile',
+    scope: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
     state,
     access_type: 'offline',
-    prompt: 'select_account',
+    prompt: 'consent select_account',
   });
 
   return NextResponse.redirect(

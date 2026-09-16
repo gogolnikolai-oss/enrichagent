@@ -13,7 +13,9 @@ import {
   Building, 
   CheckCircle2, 
   DollarSign, 
-  Filter
+  Filter,
+  FileSpreadsheet,
+  ExternalLink
 } from "lucide-react"
 import * as xlsx from "xlsx"
 import { Input } from "@/components/ui/input"
@@ -35,6 +37,52 @@ export function PropertySearch() {
   const [requireEmail, setRequireEmail] = useState(false)
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<PropertyLead[]>([])
+  const [syncingSheets, setSyncingSheets] = useState(false)
+  const [googleSheetUrl, setGoogleSheetUrl] = useState<string | null>(null)
+
+  const handleSyncGoogleSheets = async () => {
+    if (results.length === 0) return
+    setSyncingSheets(true)
+    try {
+      const payload = {
+        leads: results.map((p) => ({
+          name: p.owner_name,
+          typeOrTitle: p.owner_type === "corporate" ? "Entity / Trust" : "Individual Owner",
+          companyOrProperty: p.property_name,
+          addressOrDomain: p.address,
+          cityOrState: `${p.city}, ${p.state || ""}`,
+          countryOrZip: `${p.country} (${p.area_zipcode})`,
+          phone: p.mobile_phone || p.direct_dial_phone || "",
+          email: p.email || "",
+          source: p.source,
+          notesOrValue: p.estimated_value_usd ? `$${p.estimated_value_usd.toLocaleString()}` : "",
+        })),
+      }
+
+      const res = await fetch("/api/export/google-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        if (data.connectUrl) {
+          toast.info("Redirecting to Google to authorize Sheets export...")
+          window.location.href = data.connectUrl
+          return
+        }
+        throw new Error(data.error || "Failed to sync to Google Sheets")
+      }
+
+      setGoogleSheetUrl(data.spreadsheetUrl)
+      toast.success(`Appended ${data.rowsAppended} leads directly to Google Sheets!`)
+    } catch (err: any) {
+      toast.error(err.message || "Google Sheets sync failed")
+    } finally {
+      setSyncingSheets(false)
+    }
+  }
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -261,18 +309,59 @@ export function PropertySearch() {
       {/* Results Section */}
       {results.length > 0 && (
         <Card className="border-border/60 shadow-sm">
-          <CardHeader className="py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-muted-foreground">
-                Showing <strong className="text-foreground">{results.length}</strong> property owner records
-              </span>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" /> Free County / Google Tier
+          <CardHeader className="py-3 px-4 border-b">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <span className="text-sm font-medium text-muted-foreground">
+                  Showing <strong className="text-foreground">{results.length}</strong> property owner records
                 </span>
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> Skip-Traced Contact
-                </span>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" /> Cadastre / Public Tier
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-blue-500 inline-block" /> Skip-Traced Contact
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button variant="outline" size="sm" onClick={exportToCsv} className="h-8 text-xs gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  CSV
+                </Button>
+                <Button variant="outline" size="sm" onClick={exportToExcel} className="h-8 text-xs gap-1.5">
+                  <Download className="h-3.5 w-3.5" />
+                  Excel
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleSyncGoogleSheets}
+                  disabled={syncingSheets}
+                  className="h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {syncingSheets ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                  )}
+                  {syncingSheets ? "Syncing..." : "Sync to Google Sheets"}
+                </Button>
+
+                {googleSheetUrl && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="h-8 text-xs gap-1.5 text-emerald-600 border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-950"
+                  >
+                    <a href={googleSheetUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Open Sheet
+                    </a>
+                  </Button>
+                )}
               </div>
             </div>
           </CardHeader>

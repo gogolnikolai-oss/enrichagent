@@ -13,6 +13,7 @@ export async function GET(request: Request) {
 
   let userEmail = 'demo@enrichagent.com';
   let googleSub = 'google-mock-user-123';
+  let tokenData: any = null;
 
   if (!isMock) {
     const cookieStore = await cookies();
@@ -43,7 +44,7 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL('/login?error=Google+token+exchange+failed', request.url));
       }
 
-      const tokenData = await tokenResponse.json();
+      tokenData = await tokenResponse.json();
 
       const userProfileResponse = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
@@ -99,6 +100,25 @@ export async function GET(request: Request) {
       .prepare('UPDATE users SET google_id = ?, updated_at = datetime("now") WHERE id = ?')
       .bind(googleSub, user.id)
       .run();
+  }
+
+  // Persist Google access & refresh tokens for automated Google Sheets sync
+  if (!isMock && tokenData) {
+    try {
+      await d1
+        .prepare(
+          `INSERT INTO user_provider_keys (id, user_id, provider, api_key, mcp_endpoint, enabled, updated_at)
+           VALUES (?, ?, 'google_sheets', ?, ?, 1, datetime('now'))
+           ON CONFLICT(user_id, provider) DO UPDATE SET
+             api_key = excluded.api_key,
+             mcp_endpoint = CASE WHEN excluded.mcp_endpoint IS NOT NULL AND excluded.mcp_endpoint != '' THEN excluded.mcp_endpoint ELSE user_provider_keys.mcp_endpoint END,
+             updated_at = datetime('now')`
+        )
+        .bind(crypto.randomUUID(), user.id, tokenData.access_token, tokenData.refresh_token || '')
+        .run();
+    } catch (tokenErr) {
+      console.warn('⚠️ Could not store Google OAuth tokens in user_provider_keys:', tokenErr);
+    }
   }
 
   // Issue signed session cookie
